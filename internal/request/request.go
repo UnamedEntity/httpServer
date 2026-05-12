@@ -8,6 +8,20 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
+	state       int
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+	_, bytesRead, err := ParseRequestLine(data)
+
+	if err != nil {
+		return 0, err
+	}
+	if bytesRead == 0 {
+		return 0, errors.New("Not enough data")
+	}
+	return 1, nil
+
 }
 
 type RequestLine struct {
@@ -24,46 +38,39 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, err
 	}
 	//Parse the data to get request line
-	request_line, httpVersion, err := ParseRequestLine(request)
+	requestline, _, err := ParseRequestLine(request)
 	//Checks errors
 	if err != nil {
 		return nil, err
 	}
-	//fromats post request
-	poseRequest := RequestLine{
-		httpVersion[1],
-		request_line[1],
-		request_line[0],
-	}
 	httpRequest := &Request{
-		poseRequest,
+		*requestline,
+		1,
 	}
-	//return request
 	return httpRequest, nil
 }
-func ParseRequestLine(f []byte) ([]string, []string, error) {
-	//splits string into lines
-	requestLines := strings.Split(string(f), "\r\n")
-	//gets the request line
-	requestLines = requestLines[0:1]
-	// Splits the request line into the three parts
-	request_lines := strings.Split(requestLines[0], " ")
-	lowerCase := "abcdefghijklmnopqrstuvwxyz"
-	// Checks to see if the request has the right input
-	if len(request_lines) != 3 {
-		return []string{}, []string{}, errors.New("Too many spaces")
+func ParseRequestLine(f []byte) (*RequestLine, int, error) {
+	if strings.Contains(string(f), "\r\n") == false {
+		return nil, 0, nil
 	}
-	//Checks for valid method
-	for _, letter := range request_lines[0] {
-		if strings.ContainsAny(string(letter), lowerCase) == true {
-			return []string{}, []string{}, errors.New("Contains lower case")
+	lines := strings.Split(string(f), "\r\n")
+	requestline := strings.Split(lines[0], " ")
+	if len(requestline) != 3 {
+		return nil, 0, errors.New("Too many spaces in request line")
+	}
+	for _, i := range requestline[0] {
+		if i < 'A' || i > 'Z' {
+			return nil, 0, errors.New("Need Upercase Method in Request line")
 		}
 	}
-	//Checks for right Http version
-	if request_lines[2] != "HTTP/1.1" {
-		return []string{}, []string{}, errors.New("Wrong Version of Http")
+	httpversion := strings.Split(requestline[2], "/")
+	if httpversion[1] != "1.1" {
+		return nil, 0, errors.New("Wrong http version")
 	}
-	// Gets http version
-	httpVersion := strings.Split(request_lines[2], "/")
-	return request_lines, httpVersion, nil
+	Request := &RequestLine{
+		httpversion[1],
+		requestline[1],
+		requestline[0],
+	}
+	return Request, len(lines[0]), nil
 }
