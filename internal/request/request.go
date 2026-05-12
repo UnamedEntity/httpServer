@@ -12,16 +12,15 @@ type Request struct {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	_, bytesRead, err := ParseRequestLine(data)
-
+	R, bytesRead, err := ParseRequestLine(data)
+	r.RequestLine = *R
 	if err != nil {
 		return 0, err
 	}
 	if bytesRead == 0 {
-		return 0, errors.New("Not enough data")
+		return 0, nil
 	}
-	return 1, nil
-
+	return bytesRead, nil
 }
 
 type RequestLine struct {
