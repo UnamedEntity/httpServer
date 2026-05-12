@@ -32,7 +32,7 @@ func (r *Request) parse(data []byte) (int, error) {
 	if r.state == statedone {
 		return 0, errors.New("error: trying to read data in a done state")
 	}
-	return 0, errors.New("unkown state")
+	return 0, errors.New("unknown state")
 }
 
 type RequestLine struct {
@@ -42,23 +42,25 @@ type RequestLine struct {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	//Reades request
-	request, err := io.ReadAll(reader)
-	//Checks errors
-	if err != nil {
-		return nil, err
+	httpRequest := Request{}
+	start := 0
+	for {
+		chunck := []byte{}
+		//Reades request
+		request, err := reader.Read(chunck)
+		start += request
+		httpRequest.parse(chunck[:request])
+		//Checks errors
+		if err != nil {
+			return nil, err
+		}
+		if httpRequest.state == 1 {
+			break
+		}
 	}
-	//Parse the data to get request line
-	requestline, _, err := ParseRequestLine(request)
-	//Checks errors
-	if err != nil {
-		return nil, err
-	}
-	httpRequest := &Request{
-		*requestline,
-		1,
-	}
-	return httpRequest, nil
+	Request := &httpRequest
+	return Request, nil
+
 }
 func ParseRequestLine(f []byte) (*RequestLine, int, error) {
 	if strings.Contains(string(f), "\r\n") == false {
