@@ -19,6 +19,7 @@ func main() {
 		}
 		fmt.Println("Connection has been Accepted")
 		Lines := getLinesChannel(file)
+		// Prints lines recived
 		for line := range Lines {
 			fmt.Println(line)
 		}
@@ -31,6 +32,7 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 	go func() {
 		defer f.Close()
 		oneLine := []byte{}
+		// Reads 8 bytes at a time and fromats line by line
 		for {
 			b := make([]byte, 8)
 			n, err := f.Read(b)
