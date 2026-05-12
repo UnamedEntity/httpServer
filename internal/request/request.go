@@ -11,16 +11,28 @@ type Request struct {
 	state       int
 }
 
+const (
+	stateinit = iota
+	statedone
+)
+
 func (r *Request) parse(data []byte) (int, error) {
-	R, bytesRead, err := ParseRequestLine(data)
-	r.RequestLine = *R
-	if err != nil {
-		return 0, err
+	if r.state == stateinit {
+		requestLine, byteRead, err := ParseRequestLine(data)
+		if err != nil {
+			return 0, err
+		}
+		if byteRead == 0 {
+			return 0, nil
+		}
+		r.RequestLine = *requestLine
+		r.state = statedone
+		return byteRead, nil
 	}
-	if bytesRead == 0 {
-		return 0, nil
+	if r.state == statedone {
+		return 0, errors.New("error: trying to read data in a done state")
 	}
-	return bytesRead, nil
+	return 0, errors.New("unkown state")
 }
 
 type RequestLine struct {
