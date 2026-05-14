@@ -43,24 +43,34 @@ type RequestLine struct {
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	httpRequest := Request{}
-	start := 0
+	parseTo := 0
+	chunck := make([]byte, 8)
 	for {
-		chunck := []byte{}
+		if parseTo == len(chunck) {
+			newbuff := make([]byte, len(chunck)*2)
+			copy(newbuff, chunck)
+			chunck = newbuff
+		}
 		//Reades request
-		request, err := reader.Read(chunck)
-		start += request
-		httpRequest.parse(chunck[:request])
+		request, err := reader.Read(chunck[parseTo:])
+		parseTo += request
+		bytes, errors := httpRequest.parse(chunck[:parseTo])
+		copy(chunck, chunck[bytes:parseTo])
+		parseTo -= bytes
+		bytes = 0
 		//Checks errors
-		if err != nil {
-			return nil, err
+		if errors != nil {
+			return nil, errors
 		}
 		if httpRequest.state == 1 {
+			break
+		}
+		if err == io.EOF {
 			break
 		}
 	}
 	Request := &httpRequest
 	return Request, nil
-
 }
 func ParseRequestLine(f []byte) (*RequestLine, int, error) {
 	if strings.Contains(string(f), "\r\n") == false {
