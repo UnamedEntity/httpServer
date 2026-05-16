@@ -28,7 +28,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 			return 0, false, errors.New("Invalid Characters")
 		}
 	}
-
-	h[strings.ToLower(pair[0])] = strings.TrimSpace(pair[1])
+	if h[strings.ToLower(pair[0])] == "" {
+		h[strings.ToLower(pair[0])] = strings.TrimSpace(pair[1])
+	} else {
+		h[strings.ToLower(pair[0])] += ", " + strings.TrimSpace(pair[1])
+	}
 	return len(headers[0]) + 2, false, nil
 }
