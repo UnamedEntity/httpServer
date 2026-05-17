@@ -81,6 +81,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	parseTo := 0
 	chunck := make([]byte, 8)
 	for {
+		//reallocate array when max reached
 		if parseTo == len(chunck) {
 			newbuff := make([]byte, len(chunck)*2)
 			copy(newbuff, chunck)
@@ -108,18 +109,24 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			}
 		}
 	}
+	// create a pointer to request
 	Request := &httpRequest
+	//checks for empty headers
 	if len(Request.Headers) == 0 {
 		return nil, errors.New("Empty headers")
 	}
 	return Request, nil
 }
 func ParseRequestLine(f []byte) (*RequestLine, int, error) {
+	// check to see if it contains the CRLF
 	if strings.Contains(string(f), "\r\n") == false {
 		return nil, 0, nil
 	}
+	// splits into the request line
 	lines := strings.Split(string(f), "\r\n")
+	// splits into version,host, method
 	requestline := strings.Split(lines[0], " ")
+	//checks fo errors
 	if len(requestline) != 3 {
 		return nil, 0, errors.New("Too many spaces in request line")
 	}
@@ -128,10 +135,13 @@ func ParseRequestLine(f []byte) (*RequestLine, int, error) {
 			return nil, 0, errors.New("Need Upercase Method in Request line")
 		}
 	}
+	//splits to find version
 	httpversion := strings.Split(requestline[2], "/")
+	//checks version
 	if httpversion[1] != "1.1" {
 		return nil, 0, errors.New("Wrong http version")
 	}
+	// creates a pointer to a request line
 	Request := &RequestLine{
 		httpversion[1],
 		requestline[1],
