@@ -2,37 +2,68 @@ package request
 
 import (
 	"errors"
+	"httpServer/internal/headers"
 	"io"
 	"strings"
 )
 
 type Request struct {
 	RequestLine RequestLine
-	state       int
+	state       requestState
+	Headers     headers.Headers
 }
 
+type requestState int
+
 const (
-	stateinit = iota
-	statedone
+	requestStateInitialized requestState = iota
+	requestStateParsingHeaders
+	requestStateDone
 )
 
 func (r *Request) parse(data []byte) (int, error) {
-	if r.state == stateinit {
+	totalByets := 0
+	if r.state == requestStateInitialized {
 		requestLine, byteRead, err := ParseRequestLine(data)
+		// checks errors
 		if err != nil {
 			return 0, err
 		}
 		if byteRead == 0 {
 			return 0, nil
 		}
+		// assigns the request line to the struct
 		r.RequestLine = *requestLine
-		r.state = statedone
+		r.state = requestStateParsingHeaders
 		return byteRead, nil
 	}
-	if r.state == statedone {
-		return 0, errors.New("error: trying to read data in a done state")
+
+	//Parse headers
+	if r.state == requestStateParsingHeaders {
+		for r.state == requestStateParsingHeaders {
+			n, done, err := r.Headers.Parse(data[totalByets:])
+			if err != nil {
+				return 0, err
+			}
+			if n == 0 {
+				break
+			}
+			if done == true {
+				r.state = requestStateDone
+			}
+			totalByets += n
+
+		}
+		return totalByets, nil
 	}
-	return 0, errors.New("unknown state")
+
+	// error
+	if r.state == requestStateDone {
+		return 0, errors.New("error: trying to read data in a done state")
+	} else {
+		return 0, errors.New("unknown state")
+	}
+
 }
 
 type RequestLine struct {
@@ -42,7 +73,11 @@ type RequestLine struct {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	httpRequest := Request{}
+	httpRequest := Request{
+		state:   requestStateInitialized,
+		Headers: headers.NewHeaders(),
+	}
+
 	parseTo := 0
 	chunck := make([]byte, 8)
 	for {
@@ -54,22 +89,29 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		//Reades request
 		request, err := reader.Read(chunck[parseTo:])
 		parseTo += request
-		bytes, errors := httpRequest.parse(chunck[:parseTo])
+		bytes, errored := httpRequest.parse(chunck[:parseTo])
 		copy(chunck, chunck[bytes:parseTo])
 		parseTo -= bytes
 		bytes = 0
 		//Checks errors
-		if errors != nil {
-			return nil, errors
+		if errored != nil {
+			return nil, errored
 		}
-		if httpRequest.state == 1 {
+		if httpRequest.state == requestStateDone {
 			break
 		}
 		if err == io.EOF {
-			break
+			if parseTo == 0 {
+				return nil, errors.New("Empty headers")
+			} else {
+				break
+			}
 		}
 	}
 	Request := &httpRequest
+	if len(Request.Headers) == 0 {
+		return nil, errors.New("Empty headers")
+	}
 	return Request, nil
 }
 func ParseRequestLine(f []byte) (*RequestLine, int, error) {
@@ -95,5 +137,5 @@ func ParseRequestLine(f []byte) (*RequestLine, int, error) {
 		requestline[1],
 		requestline[0],
 	}
-	return Request, len(lines[0]), nil
+	return Request, len(lines[0]) + 2, nil
 }
