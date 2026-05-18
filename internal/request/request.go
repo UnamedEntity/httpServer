@@ -11,6 +11,7 @@ type Request struct {
 	RequestLine RequestLine
 	state       requestState
 	Headers     headers.Headers
+	Body        []byte
 }
 
 type requestState int
