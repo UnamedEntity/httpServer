@@ -4,6 +4,7 @@ import (
 	"errors"
 	"httpServer/internal/headers"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
@@ -39,7 +41,7 @@ func (r *Request) parse(data []byte) (int, error) {
 		return byteRead, nil
 	}
 
-	//Parse headers
+	// Parse headers
 	if r.state == requestStateParsingHeaders {
 		for r.state == requestStateParsingHeaders {
 			n, done, err := r.Headers.Parse(data[totalByets:])
@@ -47,15 +49,49 @@ func (r *Request) parse(data []byte) (int, error) {
 				return 0, err
 			}
 			if n == 0 {
+				if done {
+					r.state = requestStateParsingBody
+					totalByets += 2
+				}
 				break
 			}
-			if done == true {
-				r.state = requestStateDone
+			if done {
+				r.state = requestStateParsingBody
 			}
 			totalByets += n
 
 		}
 		return totalByets, nil
+	}
+
+	// Parse Body
+	if r.state == requestStateParsingBody {
+		contentLengthStr, err := r.Headers.Get("content-length")
+		if err != nil {
+			r.state = requestStateDone
+			return 0, nil
+		}
+
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, errors.New("Invalid content length value")
+		}
+
+		remaining := contentLength - len(r.Body)
+		if remaining <= 0 {
+			r.state = requestStateDone
+			return 0, nil
+		}
+
+		consumed := len(data)
+		if consumed > remaining {
+			consumed = remaining
+		}
+		r.Body = append(r.Body, data[:consumed]...)
+		if len(r.Body) == contentLength {
+			r.state = requestStateDone
+		}
+		return consumed, nil
 	}
 
 	// error
@@ -99,15 +135,48 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if errored != nil {
 			return nil, errored
 		}
-		if httpRequest.state == requestStateDone {
-			break
-		}
 		if err == io.EOF {
 			if parseTo == 0 {
-				return nil, errors.New("Empty headers")
-			} else {
+				switch httpRequest.state {
+				case requestStateInitialized:
+					return nil, errors.New("Empty")
+				case requestStateDone:
+					break
+				case requestStateParsingBody:
+					hasCL, clErr := httpRequest.Headers.Get("content-length")
+					if clErr == nil {
+						length, err := strconv.Atoi(hasCL)
+						if err != nil {
+							return nil, errors.New("Invalid content length value")
+						}
+						if len(httpRequest.Body) != length {
+							return nil, errors.New("Incomplete body")
+						}
+					}
+				default:
+					return nil, errors.New("Incomplete headers")
+				}
+			} else if httpRequest.state == requestStateDone {
 				break
+			} else if httpRequest.state == requestStateParsingBody {
+				hasCL, clErr := httpRequest.Headers.Get("content-length")
+				if clErr == nil {
+					length, err := strconv.Atoi(hasCL)
+					if err != nil {
+						return nil, errors.New("Invalid content length value")
+					}
+					if len(httpRequest.Body) != length {
+						return nil, errors.New("Incomplete body")
+					}
+				}
+				break
+			} else if httpRequest.state == requestStateParsingHeaders {
+				return nil, errors.New("Incomplete headers")
 			}
+			break
+		}
+		if httpRequest.state == requestStateDone {
+			break
 		}
 	}
 	// create a pointer to request

@@ -11,10 +11,20 @@ func NewHeaders() Headers {
 	return make(Headers)
 }
 
+func (h Headers) Get(key string) (value string, err error) {
+	x, ok := h[strings.ToLower(key)]
+	if ok == false {
+		return "", errors.New("No content length")
+	} else {
+		return x, nil
+	}
+
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	headers := strings.SplitN(string(data), "\r\n", 2)
 	validCharacters := "!#$%&'*+-.^_`|~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	//Check if there is a header
+	// Check if there is a header
 	if len(headers) == 1 {
 		return 0, false, nil
 	} else if headers[0] == "" {
