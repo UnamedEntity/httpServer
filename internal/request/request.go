@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// request struct
 type Request struct {
 	RequestLine RequestLine
 	state       requestState
@@ -17,6 +18,7 @@ type Request struct {
 
 type requestState int
 
+// enum
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
@@ -50,12 +52,15 @@ func (r *Request) parse(data []byte) (int, error) {
 			}
 			if n == 0 {
 				if done {
+					//switchs to parsing body
 					r.state = requestStateParsingBody
+					//adds two byte for CRLF
 					totalByets += 2
 				}
 				break
 			}
 			if done {
+				//switchs to parsing body
 				r.state = requestStateParsingBody
 			}
 			totalByets += n
