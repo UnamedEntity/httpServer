@@ -12,12 +12,12 @@ func NewHeaders() Headers {
 }
 
 func (h Headers) Get(key string) (value string, err error) {
-	x, ok := h[strings.ToLower(key)]
+	value, ok := h[strings.ToLower(key)]
 	//checks if key exist
 	if ok == false {
 		return "", errors.New("No content length")
 	} else {
-		return x, nil
+		return value, nil
 	}
 
 }
