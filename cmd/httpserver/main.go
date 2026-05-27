@@ -1,10 +1,10 @@
 package main
 
 import (
+	"httpServer/internal/headers"
 	"httpServer/internal/request"
 	"httpServer/internal/response"
 	"httpServer/internal/server"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -26,7 +26,7 @@ func main() {
 	<-sigChan
 	log.Println("Server gracefully stopped")
 }
-func handle(w io.Writer, req *request.Request) *server.HandlerError {
+func handle(w *response.Writer, req *request.Request) {
 	target := req.RequestLine.RequestTarget
 	// HTML responses
 	const html400 = `<html>
@@ -59,18 +59,47 @@ func handle(w io.Writer, req *request.Request) *server.HandlerError {
 	</body>
 </html>`
 
+	var (
+		hdrs headers.Headers
+		err  error
+	)
+	//pritns the htmlt response base on status code use switch statment
 	switch target {
 	case "/yourproblem":
-		hdrs := response.GetDefaultHeaders(len(html400))
+		hdrs = response.GetDefaultHeaders(len(html400))
 		hdrs.Set("content-type", "text/html")
-		return server.NewHandlerErrorWithHeaders(response.Code400, html400+"\n", hdrs)
+		err = w.WriteStatusLine(response.Code400)
+		if err != nil {
+			return
+		}
+		if err = w.WriteHeaders(hdrs); err != nil {
+			return
+		}
+		_, _ = w.WriteBody([]byte(html400 + "\n"))
+		return
 	case "/myproblem":
-		hdrs := response.GetDefaultHeaders(len(html500))
+		hdrs = response.GetDefaultHeaders(len(html500))
 		hdrs.Set("content-type", "text/html")
-		return server.NewHandlerErrorWithHeaders(response.Code500, html500+"\n", hdrs)
+		err = w.WriteStatusLine(response.Code500)
+		if err != nil {
+			return
+		}
+		if err = w.WriteHeaders(hdrs); err != nil {
+			return
+		}
+		_, _ = w.WriteBody([]byte(html500 + "\n"))
+		return
 	default:
-		hdrs := response.GetDefaultHeaders(len(html200))
+		hdrs = response.GetDefaultHeaders(len(html200))
 		hdrs.Set("content-type", "text/html")
-		return server.NewHandlerErrorWithHeaders(response.Code200, html200+"\n", hdrs)
+		err = w.WriteStatusLine(response.Code200)
+		if err != nil {
+			return
+		}
+		if err = w.WriteHeaders(hdrs); err != nil {
+			return
+		}
+		_, _ = w.WriteBody([]byte(html200 + "\n"))
+		return
 	}
 }

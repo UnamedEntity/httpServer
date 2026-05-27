@@ -50,30 +50,52 @@ func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	return nil
 }
 
+// Writer wraps an io.Writer and exposes helpers to write a full HTTP response
+// in the required order: StatusLine -> Headers -> Body.
 type Writer struct {
 	write io.Writer
+	state int
 }
 
+const (
+	writerStateInit = iota
+	writerStateStatusWritten
+	writerStateHeadersWritten
+)
+
+// NewWriter returns a new response.Writer wrapping the provided io.Writer.
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{write: w, state: writerStateInit}
+}
+
+// WriteStatusLine writes the HTTP status line. Must be called first.
 func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
-	err := WriteStatusLine(w.write, statusCode)
-	if err != nil {
+	if w.state != writerStateInit {
+		return fmt.Errorf("invalid write order: status line already written")
+	}
+	if err := WriteStatusLine(w.write, statusCode); err != nil {
 		return err
 	}
+	w.state = writerStateStatusWritten
 	return nil
 }
 
-func (w *Writer) WriteHeaders(headers headers.Headers) error {
-	err := WriteHeaders(w.write, headers)
-	if err != nil {
+// WriteHeaders writes headers. Must be called after WriteStatusLine.
+func (w *Writer) WriteHeaders(h headers.Headers) error {
+	if w.state != writerStateStatusWritten {
+		return fmt.Errorf("invalid write order: headers must follow status line")
+	}
+	if err := WriteHeaders(w.write, h); err != nil {
 		return err
 	}
+	w.state = writerStateHeadersWritten
 	return nil
 }
 
+// WriteBody writes the response body. Must be called after WriteHeaders.
 func (w *Writer) WriteBody(p []byte) (int, error) {
-	length, err := fmt.Fprintf(w.write, "%s", string(p))
-	if err != nil {
-		return 0, err
+	if w.state != writerStateHeadersWritten {
+		return 0, fmt.Errorf("invalid write order: body must follow headers")
 	}
-	return length, nil
+	return w.write.Write(p)
 }
