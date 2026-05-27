@@ -1,22 +1,20 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"httpServer/internal/headers"
+	"httpServer/internal/request"
+	"httpServer/internal/response"
+	"io"
 	"net"
 )
 
 type Server struct {
-	state    ServerState
+	state    string
 	listener net.Listener
+	handler  Handler
 }
-
-type ServerState int
-
-const (
-	initalize ServerState = iota
-	parse
-	done
-)
 
 func (s *Server) Close() error {
 	s.listener.Close()
@@ -33,20 +31,85 @@ func (s *Server) Listen() {
 	}
 }
 func (s *Server) handle(conn net.Conn) {
-	fmt.Fprint(conn, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nHello World!")
-	conn.Close()
+	defer conn.Close()
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		return
+	}
+	buf := &bytes.Buffer{}
+	handlerError := s.handler(buf, req)
+	if handlerError != nil {
+		handlerError.Write(conn)
+		return
+	}
+	err = response.WriteStatusLine(conn, response.Code200)
+	if err != nil {
+		return
+	}
+	headers := response.GetDefaultHeaders(buf.Len())
+	err = response.WriteHeaders(conn, headers)
+	if err != nil {
+		return
+	}
+	_, err = conn.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }
 
-func Serve(port int) (*Server, error) {
+// Serve function to give a response to a request
+func Serve(port int, handler Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 	if err != nil {
 		return nil, err
 	}
 	server := &Server{
-		initalize,
+		"",
 		listener,
+		handler,
 	}
 	go server.Listen()
 	return server, nil
 
 }
+
+// Handeler types
+
+type HandlerError struct {
+	state   response.StatusCode
+	message string
+	headers headers.Headers
+}
+
+func (h *HandlerError) Write(w io.Writer) error {
+	err := response.WriteStatusLine(w, h.state)
+	if err != nil {
+		return err
+	}
+	if h.headers != nil {
+		err = response.WriteHeaders(w, h.headers)
+	} else {
+		headers := response.GetDefaultHeaders(len(h.message))
+		err = response.WriteHeaders(w, headers)
+	}
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(w, "%s", h.message)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// NewHandlerError creates a HandlerError with the given status and message.
+func NewHandlerError(code response.StatusCode, msg string) *HandlerError {
+	return &HandlerError{state: code, message: msg}
+}
+
+// NewHandlerErrorWithHeaders creates a HandlerError with custom headers.
+func NewHandlerErrorWithHeaders(code response.StatusCode, msg string, hdr headers.Headers) *HandlerError {
+	return &HandlerError{state: code, message: msg, headers: hdr}
+}
+
+type Handler func(w io.Writer, req *request.Request) *HandlerError

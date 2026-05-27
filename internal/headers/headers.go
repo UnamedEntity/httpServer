@@ -22,6 +22,11 @@ func (h Headers) Get(key string) (value string, err error) {
 
 }
 
+// Set sets or replaces a header value for the given key.
+func (h Headers) Set(key, value string) {
+	h[strings.ToLower(key)] = value
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	headers := strings.SplitN(string(data), "\r\n", 2)
 	validCharacters := "!#$%&'*+-.^_`|~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"

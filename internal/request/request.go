@@ -52,16 +52,25 @@ func (r *Request) parse(data []byte) (int, error) {
 			}
 			if n == 0 {
 				if done {
-					//switchs to parsing body
-					r.state = requestStateParsingBody
-					//adds two byte for CRLF
+					// If headers are complete, decide whether a body is expected.
+					// If there's no Content-Length header, treat as done (no body).
+					if _, clErr := r.Headers.Get("content-length"); clErr != nil {
+						r.state = requestStateDone
+					} else {
+						r.state = requestStateParsingBody
+					}
+					// adds two bytes for CRLF
 					totalByets += 2
 				}
 				break
 			}
 			if done {
-				//switchs to parsing body
-				r.state = requestStateParsingBody
+				// If headers finished within this chunk, decide if a body is expected.
+				if _, clErr := r.Headers.Get("content-length"); clErr != nil {
+					r.state = requestStateDone
+				} else {
+					r.state = requestStateParsingBody
+				}
 			}
 			totalByets += n
 
