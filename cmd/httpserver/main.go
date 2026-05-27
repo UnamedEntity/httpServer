@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"httpServer/internal/headers"
 	"httpServer/internal/request"
 	"httpServer/internal/response"
 	"httpServer/internal/server"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -90,6 +94,58 @@ func handle(w *response.Writer, req *request.Request) {
 		_, _ = w.WriteBody([]byte(html500 + "\n"))
 		return
 	default:
+		// Handle /httpbin/ proxy requests with chunked transfer encoding
+		if strings.HasPrefix(target, "/httpbin/") {
+			proxiedPath := strings.TrimPrefix(target, "/httpbin")
+			upstreamURL := "https://httpbin.org" + proxiedPath
+
+			resp, err := http.Get(upstreamURL)
+			if err != nil {
+				log.Printf("Error proxying request to %s: %v", upstreamURL, err)
+				hdrs = response.GetDefaultHeaders(len(html500))
+				hdrs.Set("content-type", "text/html")
+				_ = w.WriteStatusLine(response.Code500)
+				_ = w.WriteHeaders(hdrs)
+				_, _ = w.WriteBody([]byte(html500 + "\n"))
+				return
+			}
+			defer resp.Body.Close()
+
+			// Write status line
+			_ = w.WriteStatusLine(response.Code200)
+
+			// Write headers without Content-Length, but with Transfer-Encoding: chunked
+			hdrs = headers.NewHeaders()
+			hdrs["transfer-encoding"] = "chunked"
+			hdrs["connection"] = "close"
+			if contentType, ok := resp.Header["Content-Type"]; ok && len(contentType) > 0 {
+				hdrs["content-type"] = contentType[0]
+			}
+			_ = w.WriteHeaders(hdrs)
+
+			// Read from upstream response and write chunked data to client
+			buf := make([]byte, 1024)
+			for {
+				n, err := resp.Body.Read(buf)
+				fmt.Printf("%d\n", n)
+				if n > 0 {
+					// Write chunk using chunked encoding format
+					_, _ = w.WriteChunkedBody(buf[:n])
+				}
+				if err != nil {
+					if err != io.EOF {
+						log.Printf("Error reading upstream response: %v", err)
+					}
+					break
+				}
+			}
+
+			// Write final chunk (size 0) to signal end of chunked response
+			_, _ = w.WriteChunkedBodyDone()
+			return
+		}
+
+		// Default handler
 		hdrs = response.GetDefaultHeaders(len(html200))
 		hdrs.Set("content-type", "text/html")
 		err = w.WriteStatusLine(response.Code200)

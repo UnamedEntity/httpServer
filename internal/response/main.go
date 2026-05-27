@@ -17,7 +17,7 @@ const (
 
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	var err error
-
+	// writes status line base on status code
 	switch statusCode {
 	case Code200:
 		_, err = fmt.Fprint(w, "HTTP/1.1 200 OK\r\n")
@@ -32,6 +32,7 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
+	//assigns important headers
 	headers := headers.NewHeaders()
 	headers["content-length"] = strconv.Itoa(contentLen)
 	headers["connection"] = "close"
@@ -40,6 +41,7 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 }
 
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
+	//prints headers to connection
 	for i, x := range headers {
 		_, err := fmt.Fprintf(w, "%s: %v\r\n", i, x)
 		if err != nil {
@@ -98,4 +100,33 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 		return 0, fmt.Errorf("invalid write order: body must follow headers")
 	}
 	return w.write.Write(p)
+}
+
+// Write body assuming its streamed using chuncked encoding
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	buff, err := fmt.Fprintf(w.write, "%x\r\n", len(p))
+	if err != nil {
+		return 0, err
+	}
+	bytesConsumed := buff
+	buff, err = w.write.Write(p)
+	if err != nil {
+		return 0, err
+	}
+	bytesConsumed += buff
+	buff, err = fmt.Fprint(w.write, "\r\n")
+	if err != nil {
+		return 0, err
+	}
+	bytesConsumed += buff
+	return buff, nil
+}
+
+// prints terminator when chuncked encoding is done
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	buff, err := fmt.Fprint(w.write, "0\r\n\r\n")
+	if err != nil {
+		return 0, err
+	}
+	return buff, nil
 }
