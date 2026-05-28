@@ -123,10 +123,14 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 // prints terminator when chuncked encoding is done
-func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	buff, err := fmt.Fprint(w.write, "0\r\n\r\n")
+func (w *Writer) WriteChunkedBodyDone(trailers headers.Headers) error {
+	_, err := fmt.Fprint(w.write, "0\r\n")
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return buff, nil
+	return w.WriteTrailers(trailers)
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	return WriteHeaders(w.write, h)
 }

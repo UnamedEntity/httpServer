@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"httpServer/internal/headers"
 	"httpServer/internal/request"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -93,6 +95,22 @@ func handle(w *response.Writer, req *request.Request) {
 		}
 		_, _ = w.WriteBody([]byte(html500 + "\n"))
 		return
+	case "/video":
+		data, err := os.ReadFile("assets/vim.mp4")
+		if err != nil {
+			return
+		}
+		hdrs = response.GetDefaultHeaders(len(data))
+		hdrs.Set("content-type", "video/mp4")
+		err = w.WriteStatusLine(response.Code200)
+		if err != nil {
+			return
+		}
+		if err = w.WriteHeaders(hdrs); err != nil {
+			return
+		}
+		_, _ = w.WriteBody(data)
+
 	default:
 		// Handle /httpbin/ proxy requests with chunked transfer encoding
 		if strings.HasPrefix(target, "/httpbin/") {
@@ -114,22 +132,24 @@ func handle(w *response.Writer, req *request.Request) {
 			// Write status line
 			_ = w.WriteStatusLine(response.Code200)
 
-			// Write headers without Content-Length, but with Transfer-Encoding: chunked
+			// Write headers without Content-Length, but with Transfer-Encoding: chunked and trailers
 			hdrs = headers.NewHeaders()
 			hdrs["transfer-encoding"] = "chunked"
 			hdrs["connection"] = "close"
+			hdrs["trailer"] = "X-Content-SHA256, X-Content-Length"
 			if contentType, ok := resp.Header["Content-Type"]; ok && len(contentType) > 0 {
 				hdrs["content-type"] = contentType[0]
 			}
 			_ = w.WriteHeaders(hdrs)
 
 			// Read from upstream response and write chunked data to client
+			bodyBuf := make([]byte, 0, 4096)
 			buf := make([]byte, 1024)
 			for {
 				n, err := resp.Body.Read(buf)
 				fmt.Printf("%d\n", n)
 				if n > 0 {
-					// Write chunk using chunked encoding format
+					bodyBuf = append(bodyBuf, buf[:n]...)
 					_, _ = w.WriteChunkedBody(buf[:n])
 				}
 				if err != nil {
@@ -140,8 +160,14 @@ func handle(w *response.Writer, req *request.Request) {
 				}
 			}
 
-			// Write final chunk (size 0) to signal end of chunked response
-			_, _ = w.WriteChunkedBodyDone()
+			// Calculate trailers from the full raw response body
+			hash := sha256.Sum256(bodyBuf)
+			trailers := headers.NewHeaders()
+			trailers.Set("X-Content-SHA256", fmt.Sprintf("%x", hash))
+			trailers.Set("X-Content-Length", strconv.Itoa(len(bodyBuf)))
+
+			// Write final chunk and trailer headers
+			_ = w.WriteChunkedBodyDone(trailers)
 			return
 		}
 
