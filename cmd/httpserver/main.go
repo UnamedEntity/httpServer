@@ -19,6 +19,16 @@ import (
 
 const port = 42069
 
+func assetPath(name string) string {
+	candidates := []string{name, "../../" + name, "../" + name}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return name
+}
+
 func main() {
 	srv, err := server.Serve(port, handle)
 	if err != nil {
@@ -96,7 +106,7 @@ func handle(w *response.Writer, req *request.Request) {
 		_, _ = w.WriteBody([]byte(html500 + "\n"))
 		return
 	case "/video":
-		data, err := os.ReadFile("assets/vim.mp4")
+		data, err := os.ReadFile(assetPath("assets/vim.mp4"))
 		if err != nil {
 			return
 		}
@@ -110,6 +120,23 @@ func handle(w *response.Writer, req *request.Request) {
 			return
 		}
 		_, _ = w.WriteBody(data)
+		return
+	case "/assets/exambankmultiplechoice.htm":
+		data, err := os.ReadFile(assetPath("assets/exambankmultiplechoice.htm"))
+		if err != nil {
+			return
+		}
+		hdrs = response.GetDefaultHeaders(len(data))
+		hdrs.Set("content-type", "text/html; charset=utf-8")
+		err = w.WriteStatusLine(response.Code200)
+		if err != nil {
+			return
+		}
+		if err = w.WriteHeaders(hdrs); err != nil {
+			return
+		}
+		_, _ = w.WriteBody(data)
+		return
 
 	default:
 		// Handle /httpbin/ proxy requests with chunked transfer encoding
