@@ -27,7 +27,9 @@ const (
 )
 
 func (r *Request) parse(data []byte) (int, error) {
+	// counts total bytes
 	totalByets := 0
+	//state machine
 	if r.state == requestStateInitialized {
 		requestLine, byteRead, err := ParseRequestLine(data)
 		// checks errors
@@ -39,17 +41,22 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		// assigns the request line to the struct
 		r.RequestLine = *requestLine
+		//changes state for next parse
 		r.state = requestStateParsingHeaders
 		return byteRead, nil
 	}
 
 	// Parse headers
 	if r.state == requestStateParsingHeaders {
+		//loops until state change
 		for r.state == requestStateParsingHeaders {
+			// parse headers
 			n, done, err := r.Headers.Parse(data[totalByets:])
+			// checks for errors
 			if err != nil {
 				return 0, err
 			}
+			// if no bytes are read
 			if n == 0 {
 				if done {
 					// If headers are complete, decide whether a body is expected.
@@ -65,16 +72,19 @@ func (r *Request) parse(data []byte) (int, error) {
 				break
 			}
 			if done {
-				// If headers finished within this chunk, decide if a body is expected.
+				// If there is no content length switch to immediatly done
+				// if not continue parsing body
 				if _, clErr := r.Headers.Get("content-length"); clErr != nil {
 					r.state = requestStateDone
 				} else {
 					r.state = requestStateParsingBody
 				}
 			}
+			// increment total bytes by bytes consumed
 			totalByets += n
 
 		}
+		// returns bytes consumed
 		return totalByets, nil
 	}
 

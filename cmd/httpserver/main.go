@@ -1,5 +1,8 @@
 package main
 
+// curl.exe -i http://localhost:42069/assets/exambankmultiplechoice.htm
+// go to http://localhost:42069/assets/exambankmultiplechoice.htm
+
 import (
 	"crypto/sha256"
 	"fmt"
@@ -20,21 +23,29 @@ import (
 const port = 42069
 
 func assetPath(name string) string {
+	// creates assest path
 	candidates := []string{name, "../../" + name, "../" + name}
+	// loops through assest to check if file found
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
+			// returns path if found
 			return candidate
 		}
 	}
+	// returns the name if not found
 	return name
 }
 
 func main() {
+	// runs the http server
 	srv, err := server.Serve(port, handle)
+	// error check
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
+	//close when functions ends
 	defer srv.Close()
+	//log
 	log.Println("Server started on port", port)
 
 	sigChan := make(chan os.Signal, 1)
@@ -43,6 +54,7 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 func handle(w *response.Writer, req *request.Request) {
+	// find the target
 	target := req.RequestLine.RequestTarget
 	// HTML responses
 	const html400 = `<html>
@@ -82,8 +94,12 @@ func handle(w *response.Writer, req *request.Request) {
 	//pritns the htmlt response base on status code use switch statment
 	switch target {
 	case "/yourproblem":
+		// gets headers speacial headers
 		hdrs = response.GetDefaultHeaders(len(html400))
+		//sets content type
 		hdrs.Set("content-type", "text/html")
+		//writes the status line
+		//check for errors
 		err = w.WriteStatusLine(response.Code400)
 		if err != nil {
 			return
@@ -91,28 +107,40 @@ func handle(w *response.Writer, req *request.Request) {
 		if err = w.WriteHeaders(hdrs); err != nil {
 			return
 		}
+		// write the body
 		_, _ = w.WriteBody([]byte(html400 + "\n"))
 		return
 	case "/myproblem":
+		// get headers
 		hdrs = response.GetDefaultHeaders(len(html500))
+		// assign content type
 		hdrs.Set("content-type", "text/html")
+		// write the status line
 		err = w.WriteStatusLine(response.Code500)
+		//check for errors
 		if err != nil {
 			return
 		}
 		if err = w.WriteHeaders(hdrs); err != nil {
 			return
 		}
+		// write the body
 		_, _ = w.WriteBody([]byte(html500 + "\n"))
 		return
 	case "/video":
-		data, err := os.ReadFile(assetPath("assets/vim.mp4"))
+		// read video if avalible
+		data, err := os.ReadFile(assetPath("assets/unkown.mp4"))
+		// check for errors
 		if err != nil {
 			return
 		}
+		// get the speacial headers
 		hdrs = response.GetDefaultHeaders(len(data))
+		// set the content to mp4
 		hdrs.Set("content-type", "video/mp4")
+		// writes the status line wihtout error
 		err = w.WriteStatusLine(response.Code200)
+		// checks for errors
 		if err != nil {
 			return
 		}
@@ -122,11 +150,15 @@ func handle(w *response.Writer, req *request.Request) {
 		_, _ = w.WriteBody(data)
 		return
 	case "/assets/exambankmultiplechoice.htm":
+		//Reads html in memory
 		data, err := os.ReadFile(assetPath("assets/exambankmultiplechoice.htm"))
+		//check
 		if err != nil {
 			return
 		}
+		// gets the defualt headers
 		hdrs = response.GetDefaultHeaders(len(data))
+		//set content type
 		hdrs.Set("content-type", "text/html; charset=utf-8")
 		err = w.WriteStatusLine(response.Code200)
 		if err != nil {
@@ -141,11 +173,15 @@ func handle(w *response.Writer, req *request.Request) {
 	default:
 		// Handle /httpbin/ proxy requests with chunked transfer encoding
 		if strings.HasPrefix(target, "/httpbin/") {
+			//porxyed path
 			proxiedPath := strings.TrimPrefix(target, "/httpbin")
+			//url
 			upstreamURL := "https://httpbin.org" + proxiedPath
-
+			//sends get request
 			resp, err := http.Get(upstreamURL)
+			//check for errors
 			if err != nil {
+				//error response
 				log.Printf("Error proxying request to %s: %v", upstreamURL, err)
 				hdrs = response.GetDefaultHeaders(len(html500))
 				hdrs.Set("content-type", "text/html")
@@ -154,31 +190,42 @@ func handle(w *response.Writer, req *request.Request) {
 				_, _ = w.WriteBody([]byte(html500 + "\n"))
 				return
 			}
+			//close the reader when function ends
 			defer resp.Body.Close()
 
 			// Write status line
 			_ = w.WriteStatusLine(response.Code200)
 
-			// Write headers without Content-Length, but with Transfer-Encoding: chunked and trailers
+			// write headers without Content-Length, but with Transfer-Encoding: chunked and trailers
 			hdrs = headers.NewHeaders()
+			//assignes defult headers
 			hdrs["transfer-encoding"] = "chunked"
 			hdrs["connection"] = "close"
 			hdrs["trailer"] = "X-Content-SHA256, X-Content-Length"
+			//check if content type is captial instead of lower case
 			if contentType, ok := resp.Header["Content-Type"]; ok && len(contentType) > 0 {
+				//assigns lowercase value
 				hdrs["content-type"] = contentType[0]
 			}
+			// write the headers to connection
 			_ = w.WriteHeaders(hdrs)
 
 			// Read from upstream response and write chunked data to client
+			// 4096 is standerd page size
 			bodyBuf := make([]byte, 0, 4096)
+			// buffer max length, 1024 is one binary kilobyte
 			buf := make([]byte, 1024)
 			for {
+				// reads into buffer
 				n, err := resp.Body.Read(buf)
+				// prints bytes used
 				fmt.Printf("%d\n", n)
+				// add to bytes to bodybuff
 				if n > 0 {
 					bodyBuf = append(bodyBuf, buf[:n]...)
 					_, _ = w.WriteChunkedBody(buf[:n])
 				}
+				//check for errors
 				if err != nil {
 					if err != io.EOF {
 						log.Printf("Error reading upstream response: %v", err)
@@ -187,27 +234,34 @@ func handle(w *response.Writer, req *request.Request) {
 				}
 			}
 
-			// Calculate trailers from the full raw response body
+			// calculate trailers from the full raw response body
+			// hash type
 			hash := sha256.Sum256(bodyBuf)
+			// create header type
 			trailers := headers.NewHeaders()
+			// calculate hashes from strings
 			trailers.Set("X-Content-SHA256", fmt.Sprintf("%x", hash))
+			// assign content length
 			trailers.Set("X-Content-Length", strconv.Itoa(len(bodyBuf)))
-
 			// Write final chunk and trailer headers
 			_ = w.WriteChunkedBodyDone(trailers)
 			return
 		}
 
-		// Default handler
+		// default handler
 		hdrs = response.GetDefaultHeaders(len(html200))
+		//set content type
 		hdrs.Set("content-type", "text/html")
+		// writes status line
 		err = w.WriteStatusLine(response.Code200)
+		//checks for errors
 		if err != nil {
 			return
 		}
 		if err = w.WriteHeaders(hdrs); err != nil {
 			return
 		}
+		//write the HTML body
 		_, _ = w.WriteBody([]byte(html200 + "\n"))
 		return
 	}

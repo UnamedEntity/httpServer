@@ -9,6 +9,7 @@ import (
 func main() {
 	//opens the listner
 	listener, err := net.Listen("tcp", ":42069")
+	//checks for errors
 	if err != nil {
 		return
 	}

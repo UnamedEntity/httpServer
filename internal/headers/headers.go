@@ -22,7 +22,7 @@ func (h Headers) Get(key string) (value string, err error) {
 
 }
 
-// Set sets or replaces a header value for the given key.
+// sets or replaces a header value for the given key.
 func (h Headers) Set(key, value string) {
 	h[strings.ToLower(key)] = value
 }
@@ -30,24 +30,28 @@ func (h Headers) Set(key, value string) {
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	headers := strings.SplitN(string(data), "\r\n", 2)
 	validCharacters := "!#$%&'*+-.^_`|~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	// Check if there is a header
+	// check if there is a header
 	if len(headers) == 1 {
 		return 0, false, nil
+		//checks is header is empty
 	} else if headers[0] == "" {
 		return 0, true, nil
 	}
 	//Splits into key value pair
 	pair := strings.SplitN(headers[0], ":", 2)
+	// checks if their is a key and a vlaue
 	if len(pair) != 2 {
 		return 0, false, errors.New("Missing \":\" ")
 	}
 	//Checks for vaild characters in the header
 	for _, i := range pair[0] {
+		//makes sure all characters are in the valid string
 		if strings.Contains(validCharacters, string(i)) == false {
 			return 0, false, errors.New("Invalid Characters")
 		}
 	}
 	// Increments the value if it exists and creates a new key value pair if not
+	// account for headers having multiple values
 	if _, ok := h[strings.ToLower(pair[0])]; ok == false {
 		h[strings.ToLower(pair[0])] = strings.TrimSpace(pair[1])
 	} else {
