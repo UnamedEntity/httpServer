@@ -1,6 +1,6 @@
 package main
 
-// curl.exe -i http://localhost:42069/assets/exambankmultiplechoice.htm
+// curl.exe http://localhost:42069/assets/exambankmultiplechoice.htm
 // go to http://localhost:42069/assets/exambankmultiplechoice.htm
 
 import (
