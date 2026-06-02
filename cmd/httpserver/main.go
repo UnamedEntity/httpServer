@@ -1,7 +1,6 @@
 package main
 
 // curl.exe http://localhost:42069/assets/exambankmultiplechoice.htm
-// go to http://localhost:42069/assets/exambankmultiplechoice.htm
 
 import (
 	"crypto/sha256"
@@ -176,6 +175,7 @@ func handle(w *response.Writer, req *request.Request) {
 			//porxyed path
 			proxiedPath := strings.TrimPrefix(target, "/httpbin")
 			//url
+			// for test purposes
 			upstreamURL := "https://httpbin.org" + proxiedPath
 			//sends get request
 			resp, err := http.Get(upstreamURL)
@@ -227,6 +227,7 @@ func handle(w *response.Writer, req *request.Request) {
 				}
 				//check for errors
 				if err != nil {
+					// if it is still parsing return err
 					if err != io.EOF {
 						log.Printf("Error reading upstream response: %v", err)
 					}
