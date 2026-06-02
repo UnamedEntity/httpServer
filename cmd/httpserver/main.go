@@ -128,7 +128,7 @@ func handle(w *response.Writer, req *request.Request) {
 		return
 	case "/video":
 		// read video if avalible
-		data, err := os.ReadFile(assetPath("assets/unkown.mp4"))
+		data, err := os.ReadFile(assetPath("assets/Replay.mp4"))
 		// check for errors
 		if err != nil {
 			return
