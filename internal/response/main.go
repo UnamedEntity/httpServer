@@ -20,10 +20,13 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	// writes status line base on status code
 	switch statusCode {
 	case Code200:
+		//Good Request
 		_, err = fmt.Fprint(w, "HTTP/1.1 200 OK\r\n")
 	case Code400:
+		//Bad Request
 		_, err = fmt.Fprint(w, "HTTP/1.1 400 Bad Request\r\n")
 	case Code500:
+		//Missing Data on server
 		_, err = fmt.Fprint(w, "HTTP/1.1 500 Internal Server Error\r\n")
 	default:
 		_, err = fmt.Fprint(w, "HTTP/1.1 500\r\n")
@@ -34,6 +37,7 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 func GetDefaultHeaders(contentLen int) headers.Headers {
 	//assigns important headers
 	headers := headers.NewHeaders()
+	//convert to string
 	headers["content-length"] = strconv.Itoa(contentLen)
 	headers["connection"] = "close"
 	headers["content-type"] = "text/plain"
@@ -65,7 +69,7 @@ const (
 	writerStateHeadersWritten
 )
 
-// NewWriter returns a new response.Writer wrapping the provided io.Writer.
+// Writer struct constructor
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{write: w, state: writerStateInit}
 }
@@ -96,6 +100,7 @@ func (w *Writer) WriteHeaders(h headers.Headers) error {
 
 // WriteBody writes the response body. Must be called after WriteHeaders.
 func (w *Writer) WriteBody(p []byte) (int, error) {
+	// checks for write state
 	if w.state != writerStateHeadersWritten {
 		return 0, fmt.Errorf("invalid write order: body must follow headers")
 	}
@@ -104,21 +109,26 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 
 // Write body assuming its streamed using chuncked encoding
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	// writes hexadecimal containing number of bytes
 	buff, err := fmt.Fprintf(w.write, "%x\r\n", len(p))
 	if err != nil {
 		return 0, err
 	}
+	// writes the body
 	bytesConsumed := buff
 	buff, err = w.write.Write(p)
 	if err != nil {
 		return 0, err
 	}
+	//writes the terminator
 	bytesConsumed += buff
 	buff, err = fmt.Fprint(w.write, "\r\n")
 	if err != nil {
 		return 0, err
 	}
+	// increment bytes consumed
 	bytesConsumed += buff
+	//return bytes consumed
 	return buff, nil
 }
 

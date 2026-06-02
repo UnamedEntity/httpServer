@@ -66,6 +66,7 @@ func Serve(port int, handler Handler) (*Server, error) {
 		listener,
 		handler,
 	}
+	// runs asyn
 	go server.Listen()
 	return server, nil
 

@@ -1,6 +1,6 @@
 package main
 
-// curl.exe http://localhost:42069/assets/exambankmultiplechoice.htm
+//http://localhost:42069/assets/exambankmultiplechoice.htm
 
 import (
 	"crypto/sha256"
