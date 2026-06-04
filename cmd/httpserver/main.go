@@ -62,7 +62,7 @@ func handle(w *response.Writer, req *request.Request) {
 	</head>
 	<body>
 		<h1>Bad Request</h1>
-		<p>Your request honestly kinda sucked.</p>
+		<p>malformed request.</p>
 	</body>
 </html>`
 
@@ -72,7 +72,7 @@ func handle(w *response.Writer, req *request.Request) {
 	</head>
 	<body>
 		<h1>Internal Server Error</h1>
-		<p>Okay, you know what? This one is on me.</p>
+		<p>Server error.</p>
 	</body>
 </html>`
 
@@ -82,7 +82,7 @@ func handle(w *response.Writer, req *request.Request) {
 	</head>
 	<body>
 		<h1>Success!</h1>
-		<p>Your request was an absolute banger.</p>
+		<p>Good Request.</p>
 	</body>
 </html>`
 
