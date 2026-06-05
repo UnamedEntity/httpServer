@@ -139,6 +139,7 @@ type RequestLine struct {
 	Method        string
 }
 
+// pareses request
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	httpRequest := Request{
 		state:   requestStateInitialized,

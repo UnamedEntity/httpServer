@@ -1,7 +1,7 @@
 package main
 
 //http://localhost:42069/assets/exambankmultiplechoice.htm
-
+// send a curl request
 import (
 	"crypto/sha256"
 	"fmt"
