@@ -1,6 +1,9 @@
 package main
 
-//http://localhost:42069/assets/exambankmultiplechoice.htm
+//curl.exe http://localhost:42069/assets/exambankmultiplechoice.htm
+// open http://localhost:42069/assets/exambankmultiplechoice.htm
+//curl.exe http://localhost:42069/video
+// open http://localhost:42069/video
 //curl -I "https://httpbin.org"
 //curl -X POST "https://httpbin.org/post"      -H "Content-Type: application/json"      -d '{"id": 101, "status": "active"}'
 import (
